@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>垃圾不迷路 | 智慧回收</title>
+    <style>
+        /* --- 馬卡龍配色定義 --- */
+        :root {
+            --bg-color: #FDFCF5;
+            --card-bg: #FFFFFF;
+            --primary-blue: #AEC6CF;
+            --primary-pink: #FFB7B2;
+            --primary-green: #77DD77;
+            --primary-yellow: #FDFD96;
+            --text-dark: #555555;
+            --text-light: #888888;
+            --shadow: 0 10px 25px rgba(174, 198, 207, 0.3);
+            --radius: 24px;
+        }
+
+        /* 設定中文字體 */
+        * { box-sizing: border-box; font-family: 'Microsoft JhengHei', 'PingFang TC', 'Heiti TC', sans-serif; }
+        
+        body { background-color: var(--bg-color); color: var(--text-dark); margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { color: var(--primary-blue); font-size: 2rem; margin: 0; letter-spacing: 2px; }
+        .subtitle { color: var(--primary-pink); font-size: 1rem; font-weight: bold; }
+
+        /* --- 主佈局 --- */
+        .main-container { display: grid; grid-template-columns: 250px 1fr 300px; gap: 20px; height: 100%; max-width: 1400px; margin: 0 auto; width: 100%; }
+        .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 25px; display: flex; flex-direction: column; transition: transform 0.3s ease; }
+        .card:hover { transform: translateY(-5px); }
+        h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 15px; color: var(--text-dark); border-bottom: 3px solid var(--primary-yellow); display: inline-block; padding-bottom: 5px; }
+
+        /* --- 左側 --- */
+        .left-panel { border-left: 10px solid var(--primary-blue); }
+        .user-profile { text-align: center; margin-bottom: 20px; }
+        .avatar { width: 80px; height: 80px; background-color: var(--primary-blue); border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; }
+        .history-list { flex-grow: 1; overflow-y: auto; list-style: none; padding: 0; }
+        .history-item { background-color: #f9f9f9; margin-bottom: 10px; padding: 10px; border-radius: 12px; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .tag { padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; color: white; }
+        .tag-recycle { background-color: var(--primary-green); }
+        .tag-trash { background-color: var(--primary-pink); }
+        
+        /* 狀態指示燈 */
+        .db-status { font-size: 0.8rem; color: var(--primary-green); display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 5px;}
+        .dot { height: 8px; width: 8px; background-color: #ccc; border-radius: 50%; display: inline-block; }
+        .dot.connected { background-color: var(--primary-green); box-shadow: 0 0 5px var(--primary-green); }
+
+        /* --- 中間 --- */
+        .center-panel { border-top: 10px solid var(--primary-yellow); justify-content: center; align-items: center; position: relative; }
+        .camera-zone { width: 100%; height: 100%; border: 3px dashed var(--primary-blue); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #FAFAFA; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
+        .camera-zone:hover { background-color: #F0F8FF; border-color: var(--primary-pink); }
+        .camera-icon { font-size: 4rem; color: var(--primary-blue); margin-bottom: 10px; }
+        .camera-text { color: var(--text-light); font-weight: bold; }
+        #imagePreview { display: none; width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
+        #fileInput { display: none; }
+        .scan-btn { margin-top: 20px; background-color: var(--primary-green); color: white; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(119, 221, 119, 0.4); transition: transform 0.2s; font-weight: bold; }
+        .scan-btn:active { transform: scale(0.95); }
+
+        /* --- 右側 --- */
+        .right-panel { border-right: 10px solid var(--primary-pink); }
+        .result-box { text-align: center; margin-top: 20px; padding: 20px; background-color: #FFF0F5; border-radius: 20px; }
+        .result-emoji { font-size: 5rem; display: block; margin-bottom: 10px; animation: bounce 2s infinite; }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-20px);} 60% {transform: translateY(-10px);} }
+        .result-title { font-size: 1.5rem; color: var(--primary-pink); font-weight: bold; margin: 10px 0; }
+        .confidence-bar { width: 100%; background-color: #eee; height: 10px; border-radius: 5px; margin-top: 10px; overflow: hidden; }
+        .confidence-level { height: 100%; background-color: var(--primary-green); width: 0%; transition: width 1s ease-in-out; }
+        .ai-message { margin-top: 20px; font-size: 0.9rem; color: var(--text-light); line-height: 1.6; }
+
+        /* --- RWD --- */
+        @media (max-width: 900px) {
+            .main-container { grid-template-columns: 1fr; overflow-y: auto; display: block; }
+            body { height: auto; overflow: auto; }
+            .card { margin-bottom: 20px; min-height: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>♻️ 垃圾不迷路</h1>
+        <div class="subtitle">AI 智慧辨識 x Firebase 雲端紀錄</div>
+    </header>
+
+    <div class="main-container">
+        
+        <div class="card left-panel">
+            <h2>個人中心</h2>
+            <div class="user-profile">
+                <div class="avatar">👩‍🎓</div>
+                <div style="font-weight:bold;">環保小尖兵</div>
+                <div class="db-status">
+                    <span class="dot" id="statusDot"></span>
+                    <span id="statusText">連線中...</span>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:10px; font-weight:bold; color:var(--primary-blue);">雲端歷史紀錄</div>
+            <ul class="history-list" id="historyList">
+                <li style="text-align:center; color:#ccc; padding-top:20px;">資料載入中...</li>
+            </ul>
+        </div>
+
+        <div class="card center-panel">
+            <input type="file" id="fileInput" accept="image/*">
+            <div class="camera-zone" onclick="document.getElementById('fileInput').click()">
+                <img id="imagePreview" alt="Preview">
+                <div class="camera-icon" id="cameraIcon">📷</div>
+                <div class="camera-text" id="cameraText">點擊上傳或拍攝照片</div>
+            </div>
+            <button class="scan-btn" id="analyzeBtn">✨ AI 魔法辨識</button>
+        </div>
+
+        <div class="card right-panel">
+            <h2>AI 分析結果</h2>
+            <div class="result-box">
+                <div class="result-emoji" id="resultEmoji">🤖</div>
+                <div class="result-title" id="resultTitle">等待上傳...</div>
+                <div style="text-align:left; font-size:0.8rem; margin-top:10px;">AI 信心指數：<span id="confidenceText">0%</span></div>
+                <div class="confidence-bar">
+                    <div class="confidence-level" id="confidenceLevel"></div>
+                </div>
+                <p class="ai-message" id="aiMessage">
+                    請上傳照片，AI 將自動辨識並將結果上傳至雲端資料庫！🌍
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 1. 引入 Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // 2. 你的舊 Firebase 設定碼 (已還原)
+        const firebaseConfig = {
+            apiKey: "AIzaSyD6u5rlc7yjlkoWyYpsRIoUOPFNfm4r8D4",
+            authDomain: "project-7557936264901275005.firebaseapp.com",
+            projectId: "project-7557936264901275005",
+            storageBucket: "project-7557936264901275005.firebasestorage.app",
+            messagingSenderId: "795885564714",
+            appId: "1:795885564714:web:091ae439ff2d3fbc386453",
+            measurementId: "G-Q2KH4FH0SN"
+        };
+
+        // 3. 初始化 Firebase
+        let app, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            console.log("🔥 Firebase 連線成功 (舊專案)！");
+            document.getElementById('statusDot').classList.add('connected');
+            document.getElementById('statusText').innerText = "雲端已連線";
+        } catch (error) {
+            console.error("Firebase 連線失敗:", error);
+            document.getElementById('statusText').innerText = "連線失敗";
+        }
+
+        // --- DOM 元素 ---
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const cameraIcon = document.getElementById('cameraIcon');
+        const cameraText = document.getElementById('cameraText');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        
+        // --- 圖片預覽邏輯 ---
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    cameraIcon.style.display = 'none';
+                    cameraText.style.display = 'none';
+                    
+                    // 重置 UI
+                    document.getElementById('resultTitle').innerText = "準備辨識...";
+                    document.getElementById('resultEmoji').innerText = "⏳";
+                    document.getElementById('confidenceLevel').style.width = "0%";
+                    document.getElementById('aiMessage').innerText = "按下按鈕開始 AI 分析...";
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // --- 4. 監聽資料庫變化 (Realtime Listener) ---
+        if (db) {
+            const historyRef = collection(db, "history");
+            const q = query(historyRef, orderBy("timestamp", "desc"), limit(20));
+
+            onSnapshot(q, (snapshot) => {
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = ""; 
+
+                if (snapshot.empty) {
+                    historyList.innerHTML = "<li style='text-align:center; color:#999;'>尚無紀錄，快去丟垃圾！</li>";
+                }
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.className = 'history-item';
+                    
+                    const typeText = data.type === 'recycle' ? '回收' : '一般';
+                    const typeClass = data.type === 'recycle' ? 'tag-recycle' : 'tag-trash';
+
+                    li.innerHTML = `
+                        <span>${data.itemName}</span>
+                        <span class="tag ${typeClass}">${typeText}</span>
+                    `;
+                    historyList.appendChild(li);
+                });
+            }, (error) => {
+                console.error("讀取歷史紀錄失敗:", error);
+                document.getElementById('historyList').innerHTML = "<li style='color:red;'>無法讀取，請檢查資料庫權限</li>";
+            });
+        }
+
+        // --- 5. 執行辨識並寫入資料庫 ---
+        analyzeBtn.addEventListener('click', async () => {
+            if (fileInput.files.length === 0) {
+                alert("請先選擇一張照片喔！📸");
+                return;
+            }
+
+            analyzeBtn.innerText = "分析中...";
+            analyzeBtn.disabled = true;
+
+            setTimeout(async () => {
+                // Mock Results (中文)
+                const mockResults = [
+                    { name: "寶特瓶", type: "recycle", emoji: "🧴", msg: "檢測到 PET 材質，請壓扁後回收。" },
+                    { name: "紙餐盒", type: "recycle", emoji: "🍱", msg: "紙容器需要清除廚餘並清洗乾淨喔！" },
+                    { name: "髒塑膠", type: "trash", emoji: "🛍️", msg: "太髒的塑膠袋無法回收，請丟一般垃圾。" },
+                    { name: "鐵鋁罐", type: "recycle", emoji: "🥫", msg: "金屬材質，請丟入回收桶。" }
+                ];
+                const result = mockResults[Math.floor(Math.random() * mockResults.length)];
+                
+                // 🔥 作弊程式碼：產生 90% ~ 99% 的信心指數
+                const confidence = Math.floor(Math.random() * 10) + 90;
+
+                // 更新右側 UI
+                document.getElementById('resultTitle').innerText = result.name;
+                document.getElementById('resultEmoji').innerText = result.emoji;
+                document.getElementById('confidenceLevel').style.width = confidence + "%";
+                document.getElementById('confidenceText').innerText = confidence + "%";
+                document.getElementById('aiMessage').innerText = result.msg;
+
+                // --- 寫入 Firebase Firestore ---
+                try {
+                    await addDoc(collection(db, "history"), {
+                        itemName: result.name,
+                        type: result.type,
+                        confidence: confidence,
+                        timestamp: serverTimestamp() 
+                    });
+                    console.log("✅ 資料已寫入舊專案雲端！");
+                } catch (e) {
+                    console.error("❌ 寫入失敗: ", e);
+                    alert("上傳失敗，請確認 Firebase Console (舊專案) 是否已開啟測試模式！");
+                }
+
+                analyzeBtn.innerText = "✨ AI 魔法辨識";
+                analyzeBtn.disabled = false;
+
+            }, 1500);
+        });
+
+    </script>
+</body>
+</html>
